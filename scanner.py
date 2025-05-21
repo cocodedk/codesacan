@@ -186,7 +186,7 @@ class CodeAnalyzer(ast.NodeVisitor):
                 # Function not yet defined anywhere we've seen, create a reference node
                 self.session.run(
                     """
-                    MERGE (called:Function {name: $called_name, color: $color, is_reference: true})
+                    MERGE (called:Function {name: $called_name, color: $color, is_reference: true, file: $file, line: $line, end_line: $end_line})
                     WITH called
                     MATCH (caller:Function {name: $caller_name, file: $file})
                     MERGE (caller)-[:CALLS {color: $edge_color, line: $line}]->(called)
@@ -196,7 +196,8 @@ class CodeAnalyzer(ast.NodeVisitor):
                     file=self.file_path,
                     color="#FF5722",  # Different color for reference-only functions
                     edge_color="#FF9800",  # Orange for calls relationships
-                    line=line_num
+                    line=line_num,
+                    end_line=-1
                 )
         self.generic_visit(node)
 
