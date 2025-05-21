@@ -10,8 +10,8 @@ services:
       - NEO4J_server_memory_heap_max__size=1G
       - NEO4J_server_memory_pagecache_size=512m
     volumes:
-      - neo4j_graphiti_data:/data
-      - neo4j_graphiti_logs:/logs
+      - neo4j_codescan_data:/data
+      - neo4j_codescan_logs:/logs
     healthcheck:
       test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:7474"]
       interval: 10s
@@ -20,5 +20,5 @@ services:
       start_period: 30s
 
 volumes:
-  neo4j_graphiti_data:
-  neo4j_graphiti_logs:
+  neo4j_codescan_data:
+  neo4j_codescan_logs:
