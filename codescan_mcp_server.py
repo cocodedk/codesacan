@@ -5,6 +5,7 @@ Provides tools to query a Neo4j database populated with code analysis data.
 """
 import os
 import logging
+import subprocess
 from typing import List, Dict, Any, Optional
 
 from dotenv import load_dotenv
@@ -154,6 +155,185 @@ def unresolved_references() -> List[Dict[str, Any]]:
         MATCH (f:Function:ReferenceFunction)
         RETURN f.name AS name, f.file AS first_seen_in
     """)
+
+@mcp.tool()
+def uncalled_functions() -> List[Dict[str, Any]]:
+    """
+    List all user-defined functions that are not called by any other function.
+
+    Returns:
+        List of functions (name, file, line, end_line) that have no incoming CALLS relationships.
+    """
+    return q(
+        """
+        MATCH (f:Function)
+        WHERE coalesce(f.is_reference, false) = false
+          AND NOT (():Function)-[:CALLS]->(f)
+        RETURN f.name AS name, f.file AS file, f.line AS line, f.end_line AS end_line
+        ORDER BY f.file, f.line
+        """
+    )
+
+@mcp.tool()
+def most_called_functions(limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    List functions with the most callers (fan-in).
+    Args:
+        limit: Maximum number of results to return (default 10)
+    Returns:
+        List of functions with their name, file, and number of callers.
+    """
+    return q(
+        """
+        MATCH (f:Function)
+        WHERE coalesce(f.is_reference, false) = false
+        OPTIONAL MATCH (caller:Function)-[:CALLS]->(f)
+        WITH f, count(caller) AS num_callers
+        ORDER BY num_callers DESC, f.file, f.line
+        RETURN f.name AS name, f.file AS file, num_callers
+        LIMIT $limit
+        """,
+        limit=limit
+    )
+
+@mcp.tool()
+def most_calling_functions(limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    List functions that call the most other functions (fan-out).
+    Args:
+        limit: Maximum number of results to return (default 10)
+    Returns:
+        List of functions with their name, file, and number of callees.
+    """
+    return q(
+        """
+        MATCH (f:Function)
+        WHERE coalesce(f.is_reference, false) = false
+        OPTIONAL MATCH (f)-[:CALLS]->(callee:Function)
+        WITH f, count(callee) AS num_callees
+        ORDER BY num_callees DESC, f.file, f.line
+        RETURN f.name AS name, f.file AS file, num_callees
+        LIMIT $limit
+        """,
+        limit=limit
+    )
+
+@mcp.tool()
+def recursive_functions() -> List[Dict[str, Any]]:
+    """
+    List functions that call themselves (direct recursion).
+    Returns:
+        List of recursive functions with their name and file.
+    """
+    return q(
+        """
+        MATCH (f:Function)-[:CALLS]->(f2:Function)
+        WHERE f = f2 AND coalesce(f.is_reference, false) = false
+        RETURN f.name AS name, f.file AS file, f.line AS line
+        ORDER BY f.file, f.line
+        """
+    )
+
+@mcp.tool()
+def classes_with_no_methods() -> List[Dict[str, Any]]:
+    """
+    List classes that do not contain any methods.
+    Returns:
+        List of class names and files with no outgoing CONTAINS relationships.
+    """
+    return q(
+        """
+        MATCH (c:Class)
+        WHERE NOT (c)-[:CONTAINS]->(:Function)
+        RETURN c.name AS class, c.file AS file, c.line AS line
+        ORDER BY c.file, c.line
+        """
+    )
+
+@mcp.tool()
+def functions_calling_references() -> List[Dict[str, Any]]:
+    """
+    List functions that call at least one reference function (potential missing dependencies).
+    Returns:
+        List of function names, files, and the number of reference functions they call.
+    """
+    return q(
+        """
+        MATCH (f:Function)-[:CALLS]->(ref:Function:ReferenceFunction)
+        WHERE coalesce(f.is_reference, false) = false
+        WITH f, count(ref) AS num_reference_calls
+        RETURN f.name AS name, f.file AS file, num_reference_calls
+        ORDER BY num_reference_calls DESC, f.file, f.line
+        """
+    )
+
+@mcp.tool()
+def classes_with_most_methods(limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    List classes with the most methods.
+    Args:
+        limit: Maximum number of results to return (default 10)
+    Returns:
+        List of class names, files, and method counts.
+    """
+    return q(
+        """
+        MATCH (c:Class)
+        OPTIONAL MATCH (c)-[:CONTAINS]->(f:Function)
+        WITH c, count(f) AS num_methods
+        ORDER BY num_methods DESC, c.file, c.line
+        RETURN c.name AS class, c.file AS file, num_methods
+        LIMIT $limit
+        """,
+        limit=limit
+    )
+
+@mcp.tool()
+def function_call_arguments(fn: str, file: str = None) -> List[Dict[str, Any]]:
+    """
+    List all argument lists used in calls to a given function.
+    Args:
+        fn: Name of the function to inspect
+        file: (Optional) File path to disambiguate overloaded or class methods
+    Returns:
+        List of argument lists, with caller name, caller file, and call site line number.
+    """
+    cypher = """
+        MATCH (caller:Function)-[call:CALLS]->(callee:Function {name:$fn})
+        """
+    if file:
+        cypher += " WHERE callee.file = $file"
+    cypher += """
+        RETURN DISTINCT call.args AS args, caller.name AS caller, caller.file AS caller_file, call.line AS line
+        ORDER BY line
+    """
+    params = {"fn": fn}
+    if file:
+        params["file"] = file
+    return q(cypher, **params)
+
+@mcp.tool()
+def rescan_codebase() -> dict:
+    """
+    Run scanner.py to re-analyze the codebase and repopulate the Neo4j database.
+    Returns:
+        A dictionary with keys: success (bool), output (str), error (str or None)
+    """
+    try:
+        proc = subprocess.run([
+            'python', 'scanner.py'
+        ], capture_output=True, text=True, timeout=600)
+        return {
+            'success': proc.returncode == 0,
+            'output': proc.stdout,
+            'error': proc.stderr if proc.returncode != 0 else None
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'output': '',
+            'error': str(e)
+        }
 
 # --- Main Execution ---
 if __name__ == "__main__":
