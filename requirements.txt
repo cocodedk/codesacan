@@ -1,1 +1,2 @@
-neo4j
+neo4j>=5.28.0
+python-dotenv>=1.0.0

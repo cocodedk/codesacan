@@ -1,0 +1,15 @@
+# Python virtual environments
+venv/
+drp_venv/
+.venv/
+
+# Environment variables
+.env
+
+# Bytecode and cache
+__pycache__/
+*.pyc
+
+# Neo4j data (if you ever mount it locally)
+data/
+logs/

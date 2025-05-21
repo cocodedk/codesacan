@@ -1,0 +1,22 @@
+node.Class {
+    color: #4CAF50;
+}
+node.Function {
+    color: #2196F3;
+}
+node.MainFunction {
+    color: #FFD700;
+    border-color: #FFD700;
+}
+node.ReferenceFunction {
+    color: #FF5722;
+}
+node.ClassFunction {
+    color: #8BC34A;
+}
+relationship.CALLS {
+    color: #FF9800;
+}
+relationship.CONTAINS {
+    color: #9C27B0;
+}

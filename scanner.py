@@ -4,14 +4,20 @@ import builtins
 import inspect
 import sys
 from neo4j import GraphDatabase
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Neo4j connection details
-NEO4J_URI = "bolt://localhost:7699"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "demodemo"
+NEO4J_HOST = os.getenv("NEO4J_HOST", "localhost")
+NEO4J_PORT_BOLT = os.getenv("NEO4J_PORT_BOLT", "7600")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "demodemo")
+NEO4J_URI = f"bolt://{NEO4J_HOST}:{NEO4J_PORT_BOLT}"
 
 # Directories to ignore during analysis
-IGNORE_DIRS = ['.git', 'drp_venv', '__pycache__', 'venv', '.venv', 'node_modules', 'build', 'dist', '.cache', 'tests']
+IGNORE_DIRS = ['.git', 'drp_venv', '__pycache__', 'venv', '.venv', 'node_modules', 'build', 'dist', '.cache', 'tests', 'examples']
 
 # Set of built-in functions to ignore
 BUILTIN_FUNCTIONS = set(dir(builtins))
@@ -41,10 +47,9 @@ class CodeAnalyzer(ast.NodeVisitor):
         print(f"Visiting class: {class_name} in {self.file_path} at line {line_num}")
         self.current_class = class_name
         self.session.run(
-            "MERGE (c:Class {name: $name, file: $file, color: $color, line: $line, end_line: $end_line})",
+            "MERGE (c:Class {name: $name, file: $file, line: $line, end_line: $end_line})",
             name=class_name,
             file=self.file_path,
-            color="#4CAF50",  # Green for classes
             line=line_num,
             end_line=getattr(node, 'end_lineno', -1)
         )
@@ -67,10 +72,17 @@ class CodeAnalyzer(ast.NodeVisitor):
         full_name = f"{self.current_class}.{function_name}" if self.current_class else function_name
         self.current_function = full_name
 
+        # Choose labels
+        labels = ":Function"
+        if function_name == "main":
+            labels += ":MainFunction"
+        if self.current_class:
+            labels += ":ClassFunction"
+
         # Check if a reference node for this function already exists
         result = self.session.run(
-            """
-            MATCH (f:Function {name: $name, is_reference: true})
+            f"""
+            MATCH (f{labels} {{name: $name, is_reference: true}})
             RETURN f
             """,
             name=function_name
@@ -78,19 +90,17 @@ class CodeAnalyzer(ast.NodeVisitor):
 
         # First create or update the function node
         self.session.run(
-            """
-            MERGE (f:Function {
+            f"""
+            MERGE (f{labels} {{
                 name: $name,
                 file: $file,
-                color: $color,
                 is_reference: false,
                 line: $line,
                 end_line: $end_line
-            })
+            }})
             """,
             name=full_name,
             file=self.file_path,
-            color="#2196F3",  # Blue for functions
             line=line_num,
             end_line=end_line_num
         )
@@ -143,6 +153,17 @@ class CodeAnalyzer(ast.NodeVisitor):
         else:
             called_func = None
 
+        # Extract argument names or values
+        arg_names = []
+        for arg in node.args:
+            if isinstance(arg, ast.Name):
+                arg_names.append(arg.id)
+            elif isinstance(arg, ast.Constant):
+                arg_names.append(repr(arg.value))
+            else:
+                arg_names.append(ast.dump(arg))
+        args_str = ', '.join(arg_names)
+
         # Skip built-in functions and standard library calls
         if called_func in BUILTIN_FUNCTIONS:
             print(f"  Skipping builtin function: {called_func} in {self.file_path}")
@@ -152,7 +173,7 @@ class CodeAnalyzer(ast.NodeVisitor):
             print(f"  Skipping stdlib call: {module_name}.{called_func} in {self.file_path}")
             return
 
-        print(f"Visiting call: {called_func}{f' from module {module_name}' if module_name else ''} in {self.file_path} at line {line_num}")
+        print(f"Visiting call: {called_func}{f' from module {module_name}' if module_name else ''} in {self.file_path} at line {line_num} with args: [{args_str}]")
 
         if called_func and self.current_function:
             # First check if this function already exists
@@ -173,31 +194,31 @@ class CodeAnalyzer(ast.NodeVisitor):
                     MATCH (called:Function {name: $called_name, file: $known_file})
                     WITH called
                     MATCH (caller:Function {name: $caller_name, file: $caller_file})
-                    MERGE (caller)-[:CALLS {color: $edge_color, line: $line}]->(called)
+                    MERGE (caller)-[:CALLS {color: $edge_color, line: $line, args: $args}]->(called)
                     """,
                     called_name=called_func,
                     known_file=known_file,
                     caller_name=self.current_function,
                     caller_file=self.file_path,
                     edge_color="#FF9800",  # Orange for calls relationships
-                    line=line_num
+                    line=line_num,
+                    args=args_str
                 )
             else:
                 # Function not yet defined anywhere we've seen, create a reference node
                 self.session.run(
                     """
-                    MERGE (called:Function {name: $called_name, color: $color, is_reference: true, file: $file, line: $line, end_line: $end_line})
+                    MERGE (called:Function:ReferenceFunction {name: $called_name, is_reference: true, file: $file, line: $line, end_line: $end_line})
                     WITH called
                     MATCH (caller:Function {name: $caller_name, file: $file})
-                    MERGE (caller)-[:CALLS {color: $edge_color, line: $line}]->(called)
+                    MERGE (caller)-[:CALLS {line: $line, args: $args}]->(called)
                     """,
                     called_name=called_func,
                     caller_name=self.current_function,
                     file=self.file_path,
-                    color="#FF5722",  # Different color for reference-only functions
-                    edge_color="#FF9800",  # Orange for calls relationships
                     line=line_num,
-                    end_line=-1
+                    end_line=-1,
+                    args=args_str
                 )
         self.generic_visit(node)
 
@@ -245,6 +266,9 @@ def clear_database(session):
     session.run("MATCH (n) DETACH DELETE n")
 
 def main():
+    # Get project directory from environment
+    project_dir = os.getenv("PROJECT_DIR", "/home/bba/0-projects/iman-drp")
+
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
     with driver.session() as session:
         # Clear the database to start fresh
@@ -253,10 +277,15 @@ def main():
         # Print which directories will be ignored
         print(f"Ignoring directories: {', '.join(IGNORE_DIRS)}")
 
-        # Customize the directory path to analyze
-        analyze_directory("/home/bba/0-projects/iman-drp", session)
+        # Print connection details
+        print(f"Connected to Neo4j at {NEO4J_URI}")
+        print(f"Analyzing project at {project_dir}")
+
+        # Analyze the directory from environment variable
+        analyze_directory(project_dir, session)
 
         print("Analysis complete. View the graph in Neo4j Browser with commands:")
+        print(f"- Neo4j Browser: http://{NEO4J_HOST}:{os.getenv('NEO4J_PORT_HTTP', '7400')}")
         print("- Show all nodes: MATCH (n) RETURN n")
         print("- Find functions by line: MATCH (f:Function) WHERE f.line > 100 RETURN f")
         print("- Show relationships: MATCH (n)-[r]->(m) RETURN n, r, m")
