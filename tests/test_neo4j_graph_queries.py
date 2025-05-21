@@ -36,16 +36,17 @@ def test_graph_summary():
                     count(n) as nodeCount,
                     size([x IN labels(n) WHERE x <> "Reference" | x]) as labelCount,
                     count(distinct labels(n)) as uniqueLabelCount
+                LIMIT 1
             """)
             summary = result.single()
 
             if summary and summary["nodeCount"] > 0:
                 logger.info(f"Graph summary: {summary}")
                 print(f"\nGraph contains {summary['nodeCount']} nodes with {summary['uniqueLabelCount']} unique labels")
-                return True
+                assert True, "Graph contains data"
             else:
                 logger.warning("No data in graph or connection failed")
-                return False
+                assert False, "No data in graph or connection failed"
 
 def test_function_query():
     """Test querying functions from the graph."""
@@ -63,10 +64,10 @@ def test_function_query():
                 print("\nFound functions:")
                 for func in functions:
                     print(f"  - {func['name']} ({func['file']}:{func['line']})")
-                return True
+                assert len(functions) > 0, "Functions found in the graph"
             else:
                 logger.warning("No functions found in graph or connection failed")
-                return False
+                assert False, "No functions found in graph or connection failed"
 
 def test_call_relationships():
     """Test querying function call relationships."""
@@ -84,10 +85,10 @@ def test_call_relationships():
                 print("\nFound function calls:")
                 for call in calls:
                     print(f"  - {call['caller']} calls {call['callee']}")
-                return True
+                assert len(calls) > 0, "Call relationships found in the graph"
             else:
                 logger.warning("No call relationships found in graph or connection failed")
-                return False
+                assert False, "No call relationships found in graph or connection failed"
 
 def main():
     """Run all the tests."""
