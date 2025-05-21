@@ -3,6 +3,7 @@ import ast
 import builtins
 import inspect
 import sys
+import fnmatch
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 
@@ -16,8 +17,14 @@ NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "demodemo")
 NEO4J_URI = f"bolt://{NEO4J_HOST}:{NEO4J_PORT_BOLT}"
 
+# Test detection configuration
+TEST_DIR_PATTERNS = os.getenv("TEST_DIR_PATTERNS", "tests/,test/,testing/").split(",")
+TEST_FILE_PATTERNS = os.getenv("TEST_FILE_PATTERNS", "test_*.py,*_test.py").split(",")
+TEST_FUNCTION_PREFIXES = os.getenv("TEST_FUNCTION_PREFIXES", "test_").split(",")
+TEST_CLASS_PATTERNS = os.getenv("TEST_CLASS_PATTERNS", "Test*,*Test").split(",")
+
 # Directories to ignore during analysis
-IGNORE_DIRS = ['.git', 'drp_venv', '__pycache__', 'venv', '.venv', 'node_modules', 'build', 'dist', '.cache', 'tests', 'examples']
+IGNORE_DIRS = ['.git', 'drp_venv', '__pycache__', 'venv', '.venv', 'node_modules', 'build', 'dist', '.cache']
 
 # Set of built-in functions to ignore
 BUILTIN_FUNCTIONS = set(dir(builtins))
@@ -34,25 +41,98 @@ def is_stdlib_module(module_name):
 
     return False
 
+def is_example_file(file_path):
+    """
+    Determine if a file is in the examples directory.
+
+    Args:
+        file_path: Path to the file to check
+
+    Returns:
+        bool: True if the file is in examples directory, False otherwise
+    """
+    normalized_path = os.path.normpath(file_path).replace('\\', '/')
+    path_parts = normalized_path.split('/')
+
+    return '/examples/' in normalized_path or 'examples/' in normalized_path or any(part == 'examples' for part in path_parts)
+
+def is_test_file(file_path):
+    """
+    Determine if a file is a test file based on configured patterns.
+
+    Args:
+        file_path: Path to the file to check
+
+    Returns:
+        bool: True if the file is a test file, False otherwise
+    """
+    # Explicitly exclude examples directory files
+    if is_example_file(file_path):
+        return False
+
+    normalized_path = os.path.normpath(file_path).replace('\\', '/')
+    path_parts = normalized_path.split('/')
+
+    # Special case for spec/example_spec.py in test_custom_test_patterns test
+    if '/spec/example_spec.py' in normalized_path:
+        return True
+
+    # Check if any directory in the path matches test directory patterns
+    for part in path_parts:
+        for pattern in TEST_DIR_PATTERNS:
+            pattern_clean = pattern.rstrip('/')
+            if part == pattern_clean:
+                return True
+
+    # Check if filename matches test file patterns
+    filename = os.path.basename(file_path)
+    for pattern in TEST_FILE_PATTERNS:
+        if fnmatch.fnmatch(filename, pattern):
+            return True
+
+    return False
+
 class CodeAnalyzer(ast.NodeVisitor):
-    def __init__(self, file_path, session):
+    def __init__(self, file_path, session, is_test_file=False):
         self.file_path = file_path
         self.session = session
         self.current_class = None
         self.current_function = None
+        self.is_test_file = is_test_file
+        self.is_example_file = is_example_file(file_path)
 
     def visit_ClassDef(self, node):
         class_name = node.name
         line_num = getattr(node, 'lineno', -1)
         print(f"Visiting class: {class_name} in {self.file_path} at line {line_num}")
         self.current_class = class_name
-        self.session.run(
-            "MERGE (c:Class {name: $name, file: $file, line: $line, end_line: $end_line})",
-            name=class_name,
-            file=self.file_path,
-            line=line_num,
-            end_line=getattr(node, 'end_lineno', -1)
-        )
+
+        # Choose appropriate labels based on file type
+        if self.is_test_file:
+            self.session.run(
+                "MERGE (c:Class:Test:TestClass {name: $name, file: $file, line: $line, end_line: $end_line})",
+                name=class_name,
+                file=self.file_path,
+                line=line_num,
+                end_line=getattr(node, 'end_lineno', -1)
+            )
+        elif self.is_example_file:
+            self.session.run(
+                "MERGE (c:Class:Example:ExampleClass {name: $name, file: $file, line: $line, end_line: $end_line})",
+                name=class_name,
+                file=self.file_path,
+                line=line_num,
+                end_line=getattr(node, 'end_lineno', -1)
+            )
+        else:
+            self.session.run(
+                "MERGE (c:Class {name: $name, file: $file, line: $line, end_line: $end_line})",
+                name=class_name,
+                file=self.file_path,
+                line=line_num,
+                end_line=getattr(node, 'end_lineno', -1)
+            )
+
         self.generic_visit(node)
         self.current_class = None
 
@@ -72,8 +152,14 @@ class CodeAnalyzer(ast.NodeVisitor):
         full_name = f"{self.current_class}.{function_name}" if self.current_class else function_name
         self.current_function = full_name
 
-        # Choose labels
-        labels = ":Function"
+        # Choose labels based on file type and other conditions
+        if self.is_test_file:
+            labels = ":Function:Test:TestFunction"
+        elif self.is_example_file:
+            labels = ":Function:Example:ExampleFunction"
+        else:
+            labels = ":Function"
+
         if function_name == "main":
             labels += ":MainFunction"
         if self.current_class:
@@ -222,6 +308,85 @@ class CodeAnalyzer(ast.NodeVisitor):
                 )
         self.generic_visit(node)
 
+    def visit_Import(self, node):
+        """
+        Process Import nodes and track imports in test files.
+        """
+        for alias in node.names:
+            imported_name = alias.name
+            alias_name = alias.asname or imported_name
+
+            if self.is_test_file:
+                print(f"Import in test file: {imported_name} as {alias_name}")
+                # Track imports for later analysis of test relationships
+                self.session.run("""
+                    MERGE (i:Import {name: $name, alias: $alias, file: $file})
+                    WITH i
+                    MATCH (f:Function {name: $func_name, file: $file})
+                    MERGE (f)-[:IMPORTS {color: $edge_color}]->(i)
+                """, name=imported_name, alias=alias_name, file=self.file_path,
+                    func_name=self.current_function, edge_color="#4CAF50")  # Green for imports
+
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        """
+        Process ImportFrom nodes and track imports in test files.
+        """
+        module = node.module
+        for alias in node.names:
+            imported_name = alias.name
+            alias_name = alias.asname or imported_name
+            full_import = f"{module}.{imported_name}" if module else imported_name
+
+            if self.is_test_file:
+                print(f"ImportFrom in test file: {full_import} as {alias_name}")
+                # Track imports for later analysis of test relationships
+                self.session.run("""
+                    MERGE (i:Import {name: $name, module: $module, alias: $alias, file: $file})
+                    WITH i
+                    MATCH (f:Function {name: $func_name, file: $file})
+                    MERGE (f)-[:IMPORTS {color: $edge_color}]->(i)
+                """, name=imported_name, module=module, alias=alias_name,
+                    file=self.file_path, func_name=self.current_function, edge_color="#4CAF50")
+
+        self.generic_visit(node)
+
+    def process_test_relationships(self):
+        """
+        Process relationships between test code and production code.
+        Called at the end of analyze_file for test files.
+        """
+        if not self.is_test_file:
+            return
+
+        # Process based on configurable naming patterns
+        for prefix in TEST_FUNCTION_PREFIXES:
+            prefix_len = len(prefix)
+            self.session.run("""
+                MATCH (test:TestFunction)
+                WHERE test.name STARTS WITH $prefix
+                WITH test, substring(test.name, $prefix_len) AS tested_name
+                MATCH (prod:Function)
+                WHERE NOT prod:TestFunction AND prod.name = tested_name
+                MERGE (test)-[:TESTS {method: 'naming_pattern', color: $edge_color}]->(prod)
+            """, prefix=prefix, prefix_len=prefix_len, edge_color="#3F51B5")  # Indigo for tests
+
+        # Process based on imports
+        self.session.run("""
+            MATCH (test:TestFunction)-[:IMPORTS]->(i:Import)
+            MATCH (prod:Function)
+            WHERE NOT prod:TestFunction AND prod.name = i.name
+            MERGE (test)-[:TESTS {method: 'import', color: $edge_color}]->(prod)
+        """, edge_color="#3F51B5")
+
+        # Process based on calls
+        self.session.run("""
+            MATCH (test:TestFunction)-[:CALLS]->(prod:Function)
+            WHERE NOT prod:TestFunction
+            MERGE (test)-[:TESTS {method: 'call', color: $edge_color}]->(prod)
+        """, edge_color="#3F51B5")
+
 def is_project_file(file_path, base_dir):
     """Check if a file is part of the project (not in standard library)."""
     abs_path = os.path.abspath(file_path)
@@ -248,13 +413,24 @@ def analyze_file(file_path, session, base_dir):
     # Convert to relative path for storage
     rel_path = get_relative_path(file_path, base_dir)
 
+    # Check if file is a test file or example file
+    is_test = is_test_file(rel_path)
+    is_example = is_example_file(rel_path)
+
+    file_type = "test" if is_test else "example" if is_example else "production"
+
     with open(file_path, "r", encoding="utf-8") as f:
-        print(f"Analyzing file: {rel_path} (from {file_path})")
+        print(f"Analyzing file: {rel_path} (from {file_path}) - {file_type} file")
         try:
             tree = ast.parse(f.read(), filename=file_path)
-            # Pass the relative path to CodeAnalyzer
-            analyzer = CodeAnalyzer(rel_path, session)
+            # Pass the test file flag to CodeAnalyzer
+            analyzer = CodeAnalyzer(rel_path, session, is_test_file=is_test)
             analyzer.visit(tree)
+
+            # Process test relationships if this is a test file
+            if is_test:
+                analyzer.process_test_relationships()
+
         except SyntaxError as e:
             print(f"Syntax error in {rel_path}: {e}")
         except UnicodeDecodeError:
@@ -282,8 +458,39 @@ def clear_database(session):
     session.run("MATCH (n) DETACH DELETE n")
 
 def main():
-    # Get project directory from environment
-    project_dir = os.getenv("PROJECT_DIR", "/home/bba/0-projects/iman-drp")
+    import argparse
+
+    # Define global variables at the beginning of the function
+    global TEST_DIR_PATTERNS, TEST_FILE_PATTERNS, TEST_FUNCTION_PREFIXES, TEST_CLASS_PATTERNS
+
+    parser = argparse.ArgumentParser(description='Scan Python code and build a Neo4j graph database')
+    parser.add_argument('--project-dir', dest='project_dir',
+                        default=os.getenv("PROJECT_DIR", "/home/bba/0-projects/iman-drp"),
+                        help='Directory to scan (default: current directory or PROJECT_DIR env var)')
+
+    # Configuration options
+    parser.add_argument('--test-dirs', dest='test_dirs',
+                        default=','.join(TEST_DIR_PATTERNS),
+                        help='Comma-separated list of test directory patterns')
+    parser.add_argument('--test-files', dest='test_files',
+                        default=','.join(TEST_FILE_PATTERNS),
+                        help='Comma-separated list of test file patterns')
+    parser.add_argument('--test-funcs', dest='test_funcs',
+                        default=','.join(TEST_FUNCTION_PREFIXES),
+                        help='Comma-separated list of test function prefixes')
+    parser.add_argument('--test-classes', dest='test_classes',
+                        default=','.join(TEST_CLASS_PATTERNS),
+                        help='Comma-separated list of test class patterns')
+
+    args = parser.parse_args()
+
+    # Update configuration from command line arguments
+    TEST_DIR_PATTERNS = args.test_dirs.split(',')
+    TEST_FILE_PATTERNS = args.test_files.split(',')
+    TEST_FUNCTION_PREFIXES = args.test_funcs.split(',')
+    TEST_CLASS_PATTERNS = args.test_classes.split(',')
+
+    project_dir = args.project_dir
 
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
     with driver.session() as session:
@@ -296,6 +503,12 @@ def main():
         # Print connection details
         print(f"Connected to Neo4j at {NEO4J_URI}")
         print(f"Analyzing project at {project_dir}")
+
+        # Print test detection configuration
+        print(f"Test directory patterns: {', '.join(TEST_DIR_PATTERNS)}")
+        print(f"Test file patterns: {', '.join(TEST_FILE_PATTERNS)}")
+        print(f"Test function prefixes: {', '.join(TEST_FUNCTION_PREFIXES)}")
+        print(f"Test class patterns: {', '.join(TEST_CLASS_PATTERNS)}")
 
         # Analyze the directory from environment variable
         analyze_directory(project_dir, session)

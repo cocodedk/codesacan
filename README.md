@@ -10,6 +10,10 @@
 - **Call graph construction**: Detects function calls, including argument names/values, and creates `CALLS` relationships in the graph.
 - **Node labeling**: Assigns multiple labels to nodes for advanced visualization (e.g., `:Function`, `:MainFunction`, `:ClassFunction`, `:ReferenceFunction`).
 - **Reference node handling**: Creates special nodes for called functions that are not defined in the scanned codebase.
+- **Test detection and coverage**: Automatically identifies test components and establishes test coverage relationships:
+  - Labels test files, functions, and classes with appropriate markers (`:Test`, `:TestFunction`, `:TestClass`)
+  - Creates `TESTS` relationships between test code and the production code it tests
+  - Configurable test patterns for different project structures and testing frameworks
 - **Configurable directory traversal**: Skips specified directories (e.g., virtualenvs, `.git`, test folders) for efficient scanning.
 - **Relative path storage**: Stores file paths relative to the project directory for improved portability.
 - **Environment-based configuration**: Reads Neo4j connection and project settings from a `.env` file.
@@ -37,7 +41,16 @@
 - If a function is called but not defined in the scanned codebase, a `:ReferenceFunction` node is created.
 - When the function is later defined, all `CALLS` relationships to the reference node are redirected to the real function node.
 
-### 4. Configuration
+### 4. Test Coverage Detection
+- Test files, functions, and classes are automatically identified based on configurable patterns
+- Test components receive appropriate labels (`:Test`, `:TestFunction`, `:TestClass`)
+- `TESTS` relationships are created between test functions and production code through:
+  - **Naming patterns**: A test function named `test_foo` likely tests the function `foo`
+  - **Import analysis**: Test functions often import the modules/functions they test
+  - **Call analysis**: Functions called by test functions are likely being tested
+- All detection patterns are configurable for different project structures and frameworks
+
+### 5. Configuration
 - All connection and project settings are loaded from a `.env` file using `python-dotenv`.
 - Example variables:
   - `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_HOST`, `NEO4J_PORT_BOLT`, `PROJECT_DIR`
