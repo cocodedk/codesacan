@@ -1,0 +1,37 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+**1. Sanity Check**
+
+* Validate the logic and coherence of the request.
+* If contradictions, bias, or paradoxes are detected, pause and request clarification.
+* Break down complex requests into smaller, executable sub-tasks.
+
+**2. Environment Setup**
+
+* Activate the Python environment:
+  `source venv/bin/activate.fish`
+  `clear && source venv/bin/activate.fish && pytest -xsvv`
+**3. Execution Pipeline**
+If the request is valid, proceed:
+
+1. Analyze the request and create requierments
+2. Research the options for meeting the requirements
+3. Develope an effective Plan for a concise solution. A Simple plan rather than lengthy plan.
+4. Save the plan in `./docs`, here by refer to as DOC-FILE
+5. List tasks in `./tasks`, here by refer to as TASK-FILE
+6. Implement step-by-step using TDD
+7. Tests must pass for each step
+8. Check off completed tasks in TASK-FILE
+9. All tests must pass before acceptance
+10. Mark tasks as done when complete in TASK-FILE
+11. Use any required MCP tools
+12. The DOC-FILE must be updated with the name of the relevant files which have been created and updated
+13. Repeat the process when needed
+
+**4. MCP Tool Usage**
+
+* Use **MCP Graphiti** for memory storage and retrieval
+* Use **MCP Sequential Thinking** for structured planning

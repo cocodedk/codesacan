@@ -90,5 +90,47 @@
 ## Example .env
 See `.env.example` for a template.
 
+## MCP Server and Cursor Integration
+
+CodeScan includes an MCP (Model Context Protocol) server for advanced code graph querying and integration with tools like Cursor IDE.
+
+### MCP Server (`codescan_mcp_server.py`)
+This server exposes the code graph stored in Neo4j via the MCP protocol, making it accessible to compatible clients. It provides tools for listing files, functions, classes, call relationships, and unresolved references.
+
+### Running the MCP Server
+Use the provided shell script to launch the server (ensure your virtual environment is activated and Neo4j is running):
+
+```bash
+./run_mcp_stdio_server.sh
+```
+
+This will start the MCP server using stdio transport, ready for integration with Cursor or other MCP clients.
+
+### Cursor IDE Integration
+To use CodeScan's MCP server with Cursor IDE, add the following to your `.cursor/mcp.json` (adjust the path as needed):
+
+```json
+{
+  "mcpServers": {
+    "codescan_neo4j": {
+      "command": "/home/bba/0-projects/codescan/run_mcp_stdio_server.sh",
+      "args": [],
+      "cwd": "/home/bba/0-projects/codescan"
+    }
+  }
+}
+```
+
+After configuring, restart Cursor and open the MCP tools panel. You should see CodeScan's tools (e.g., `graph_summary`, `list_files`, `list_functions`, etc.) available for querying your codebase.
+
+#### Troubleshooting
+- Ensure Neo4j is running and accessible with the credentials in your `.env` file.
+- Check the server logs for errors if tools do not appear in Cursor.
+- The server must be started from the project root for relative paths to resolve correctly.
+
+**Relevant files:**
+- `codescan_mcp_server.py` — MCP server implementation
+- `run_mcp_stdio_server.sh` — Shell script to launch the server
+
 ## License
 MIT or your project license here.
