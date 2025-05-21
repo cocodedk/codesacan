@@ -227,22 +227,38 @@ def is_project_file(file_path, base_dir):
     abs_path = os.path.abspath(file_path)
     return abs_path.startswith(os.path.abspath(base_dir))
 
+def get_relative_path(file_path, base_dir):
+    """Convert absolute file path to path relative to the project directory."""
+    abs_file_path = os.path.abspath(file_path)
+    abs_base_dir = os.path.abspath(base_dir)
+
+    # Ensure the path is inside the base_dir
+    if not abs_file_path.startswith(abs_base_dir):
+        return file_path
+
+    rel_path = os.path.relpath(abs_file_path, abs_base_dir)
+    return rel_path
+
 def analyze_file(file_path, session, base_dir):
     # Skip standard library files
     if not is_project_file(file_path, base_dir):
         print(f"Skipping non-project file: {file_path}")
         return
 
+    # Convert to relative path for storage
+    rel_path = get_relative_path(file_path, base_dir)
+
     with open(file_path, "r", encoding="utf-8") as f:
-        print(f"Analyzing file: {file_path}")
+        print(f"Analyzing file: {rel_path} (from {file_path})")
         try:
             tree = ast.parse(f.read(), filename=file_path)
-            analyzer = CodeAnalyzer(file_path, session)
+            # Pass the relative path to CodeAnalyzer
+            analyzer = CodeAnalyzer(rel_path, session)
             analyzer.visit(tree)
         except SyntaxError as e:
-            print(f"Syntax error in {file_path}: {e}")
+            print(f"Syntax error in {rel_path}: {e}")
         except UnicodeDecodeError:
-            print(f"Unable to decode file: {file_path} - skipping")
+            print(f"Unable to decode file: {rel_path} - skipping")
 
 def analyze_directory(directory, session, ignore_dirs=None):
     if ignore_dirs is None:

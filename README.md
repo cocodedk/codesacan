@@ -11,6 +11,7 @@
 - **Node labeling**: Assigns multiple labels to nodes for advanced visualization (e.g., `:Function`, `:MainFunction`, `:ClassFunction`, `:ReferenceFunction`).
 - **Reference node handling**: Creates special nodes for called functions that are not defined in the scanned codebase.
 - **Configurable directory traversal**: Skips specified directories (e.g., virtualenvs, `.git`, test folders) for efficient scanning.
+- **Relative path storage**: Stores file paths relative to the project directory for improved portability.
 - **Environment-based configuration**: Reads Neo4j connection and project settings from a `.env` file.
 - **GraSS-compatible**: Designed for use with Neo4j Browser's GraSS stylesheet for custom node/relationship coloring.
 

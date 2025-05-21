@@ -1,2 +1,5 @@
 neo4j>=5.28.0
 python-dotenv>=1.0.0
+fastapi>=0.114.0
+uvicorn>=0.29.0
+sse-starlette>=1.0.0
