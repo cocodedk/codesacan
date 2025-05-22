@@ -3,42 +3,44 @@ description:
 globs:
 alwaysApply: true
 ---
-### **1. Sanity Check**
+### !EPIPE (Execution Pipeline Instruction Set)
+---
+#### 1. Sanity Check
 * Validate logic, coherence
 * Detect contradictions, bias, paradoxes → pause, request clarification
 * Break down complex requests → smaller sub-tasks
 ---
-### **2. Environment Setup**
+#### 2. Environment Setup
 * Activate Python environment:
   `source venv/bin/activate.fish`
 * Run tests:
   `clear && source venv/bin/activate.fish && pytest -xsvv`
 ---
-### **3. Execution Pipeline (`!EPIPE`)**
-* If valid → proceed:
-  1. Analyze request, create requirements
-  2. Research options, meet requirements
-  3. Develop concise solution plan (simple > lengthy)
-  4. Save plan → `./docs` (DOC-FILE)
-  5. List tasks → `./tasks` (TASK-FILE)
-  6. Implement via TDD, step-by-step
-  7. Tests → must pass per step
-  8. Check off completed tasks → TASK-FILE
-  9. All tests pass → accept
-  10. Mark done → TASK-FILE
-  11. Use required MCP tools
-  12. Update DOC-FILE → list created/modified files
-  13. Repeat as needed
-* `!EPIPE` → refers to Execution Pipeline
+#### 3. Pipeline Steps
+1. Analyze request, create requirements
+2. Research options, meet requirements
+3. Develop concise solution plan (simple > lengthy)
+4. Save plan → `./docs` (DOC-FILE)
+5. List tasks → `./tasks` (TASK-FILE)
+6. Implement via TDD, step-by-step
+7. Tests → must pass per step
+8. Check off completed tasks → TASK-FILE
+9. All tests pass → accept
+10. Mark done → TASK-FILE
+11. Use required MCP tools
+12. Update DOC-FILE → list created/modified files
+13. Repeat as needed
 ---
-### **4. MCP Tool Usage**
+#### 4. MCP Tool Usage
+* `MCP Graphiti` → memory storage, retrieval
 * `MCP Sequential Thinking` → structured planning
+* `MCP CodeScan` → code queries
 ---
-### **5. Function Size Rule**
+#### 5. Function Size Rule
 * Functions <50 lines → focused, testable
 * One responsibility per function
 ---
-### **6. File Size Rule**
+#### 6. File Size Rule
 * Files <500 lines → split by concern
 * Extract logic → modules, utils, features
 * Favor readability, reuse, modularity

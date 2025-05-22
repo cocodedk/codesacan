@@ -50,7 +50,17 @@ def main():
                         default=','.join(test_class_patterns),
                         help='Comma-separated list of test class patterns')
 
+    # Output options
+    parser.add_argument('--quiet', dest='quiet', action='store_true',
+                        help='Reduce output verbosity')
+    parser.add_argument('--verbose', dest='verbose', action='store_true',
+                        help='Increase output verbosity')
+
     args = parser.parse_args()
+
+    # Determine verbosity level
+    verbose = args.verbose and not args.quiet
+    quiet = args.quiet
 
     # Update configuration from command line arguments
     test_dir_patterns = args.test_dirs.split(',')
@@ -68,30 +78,39 @@ def main():
 
     project_dir = args.project_dir
 
+    # Print basic info unless quiet mode is enabled
+    if not quiet:
+        print(f"Ignoring directories: {', '.join(IGNORE_DIRS)}")
+        print(f"Connected to Neo4j at {NEO4J_URI}")
+        print(f"Analyzing project at {project_dir}")
+
+        # Print test detection configuration if verbose
+        if verbose:
+            print(f"Test directory patterns: {', '.join(test_dir_patterns)}")
+            print(f"Test file patterns: {', '.join(test_file_patterns)}")
+            print(f"Test function prefixes: {', '.join(test_function_prefixes)}")
+            print(f"Test class patterns: {', '.join(test_class_patterns)}")
+
     # Get a database session
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
     with driver.session() as session:
         # Clear the database to start fresh
-        clear_database(session)
+        clear_database(session, quiet=quiet)
 
-        # Print which directories will be ignored
-        print(f"Ignoring directories: {', '.join(IGNORE_DIRS)}")
+        # Analyze the directory with custom patterns and collect stats
+        stats = analyze_directory(
+            project_dir,
+            session,
+            custom_patterns=custom_patterns,
+            verbose=verbose
+        )
 
-        # Print connection details
-        print(f"Connected to Neo4j at {NEO4J_URI}")
-        print(f"Analyzing project at {project_dir}")
+        # Print statistics summary
+        if not quiet:
+            stats.print_summary()
 
-        # Print test detection configuration
-        print(f"Test directory patterns: {', '.join(test_dir_patterns)}")
-        print(f"Test file patterns: {', '.join(test_file_patterns)}")
-        print(f"Test function prefixes: {', '.join(test_function_prefixes)}")
-        print(f"Test class patterns: {', '.join(test_class_patterns)}")
-
-        # Analyze the directory with custom patterns
-        analyze_directory(project_dir, session, custom_patterns=custom_patterns)
-
-        # Print database information
-        print_db_info()
+        # Print database information if not quiet
+        print_db_info(quiet=quiet)
 
     # Close the connection
     driver.close()

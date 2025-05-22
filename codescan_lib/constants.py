@@ -19,7 +19,7 @@ TEST_FUNCTION_PREFIXES = os.getenv("TEST_FUNCTION_PREFIXES", "test_").split(",")
 TEST_CLASS_PATTERNS = os.getenv("TEST_CLASS_PATTERNS", "Test*,*Test").split(",")
 
 # Directories to ignore during analysis
-IGNORE_DIRS = ['.git', '__pycache__', 'venv', '.venv', 'node_modules', 'build', 'dist', '.cache']
+IGNORE_DIRS = ['.git', '__pycache__', 'drp_venv', 'venv', '.venv', 'node_modules', 'build', 'dist', '.cache']
 
 # Set of built-in functions to ignore
 BUILTIN_FUNCTIONS = set(dir(builtins))

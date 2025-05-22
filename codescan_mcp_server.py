@@ -13,6 +13,9 @@ from logging.handlers import RotatingFileHandler
 from dotenv import load_dotenv
 from neo4j import GraphDatabase, basic_auth
 from mcp.server.fastmcp import FastMCP
+from codescan_lib import (
+    NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
+)
 
 # --- Configuration & Setup ---
 load_dotenv(".env", override=True)
@@ -677,6 +680,45 @@ def untested_classes(exclude_private: bool = True) -> List[Dict[str, Any]]:
         RETURN c.name AS name, c.file AS file, c.line AS line
         ORDER BY c.file, c.line
     """)
+
+def get_db_session():
+    """Create and return a Neo4j database session."""
+    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    return driver.session()
+
+@mcp.tool()
+def repetitive_constants(limit: int = 10) -> list:
+    """
+    List constants with identical values used in multiple places across the codebase.
+
+    Args:
+        limit: Maximum number of results to return (default 10)
+
+    Returns:
+        List of constants with the same value used in multiple places,
+        showing value, type, and locations where they are defined.
+    """
+    with get_db_session() as session:
+        # Find constants with the same value used in multiple places
+        result = session.run("""
+            MATCH (c1:Constant)
+            WITH c1.value AS value, collect(c1) AS constants
+            WHERE size(constants) > 1
+            RETURN
+                value,
+                [c in constants | c.type][0] AS type,
+                size(constants) AS count,
+                [c in constants | {
+                    name: c.name,
+                    file: c.file,
+                    line: c.line,
+                    scope: c.scope
+                }] AS occurrences
+            ORDER BY count DESC
+            LIMIT $limit
+        """, limit=limit).data()
+
+        return result
 
 # --- Main Execution ---
 if __name__ == "__main__":
