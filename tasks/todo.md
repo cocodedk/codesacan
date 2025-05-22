@@ -10,3 +10,5 @@
   1. add the length of the class to the class node
   2. ✅ add the length of the function to the function node
 4. ✅ remove the print statements while scanning, if possible use tqdm
+5. ✅ update the README.md with the needed information about copying example.env to .env and changing the PROJECT_DIR to the path of the project you want to scan
+6. ✅ Investigate if the file are being registered too. and mapped to the correct classes and functions

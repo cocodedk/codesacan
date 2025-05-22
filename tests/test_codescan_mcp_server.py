@@ -4,7 +4,7 @@ from codescan_mcp_server import (
     graph_summary, list_files, list_functions, list_classes, callees, callers,
     unresolved_references, uncalled_functions, most_called_functions, most_calling_functions,
     recursive_functions, classes_with_no_methods, functions_calling_references,
-    classes_with_most_methods, function_call_arguments, rescan_codebase
+    classes_with_most_methods, function_call_arguments, rescan_codebase, file_contents
 )
 
 def test_graph_summary():
@@ -13,7 +13,7 @@ def test_graph_summary():
     assert all('funcs' in r and 'classes' in r and 'calls' in r for r in result)
 
 def test_list_files():
-    result = list_files()
+    result = list_files(random_string="dummy")
     assert isinstance(result, list)
     assert all('file' in r for r in result)
 
@@ -88,3 +88,11 @@ def test_rescan_codebase_runs():
     result = rescan_codebase()
     assert isinstance(result, dict)
     assert 'success' in result and 'output' in result and 'error' in result
+
+def test_file_contents_empty():
+    result = file_contents(file="nonexistent.py")
+    assert isinstance(result, dict)
+    assert 'file' in result and 'contents' in result
+    assert result['file'] == "nonexistent.py"
+    assert isinstance(result['contents'], list)
+    assert result['contents'] == []
