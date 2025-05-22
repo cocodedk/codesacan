@@ -12,3 +12,6 @@
 4. ✅ remove the print statements while scanning, if possible use tqdm
 5. ✅ update the README.md with the needed information about copying example.env to .env and changing the PROJECT_DIR to the path of the project you want to scan
 6. ✅ Investigate if the file are being registered too. and mapped to the correct classes and functions
+7. ✅ need a tool to find constants with same name regardless of their value
+8. ✅ research how codescan_mcp_server.py can be splitted into multiple files in a subfolder. create a file per tool if it is economically viable
+9.

@@ -4,7 +4,8 @@ from codescan_mcp_server import (
     graph_summary, list_files, list_functions, list_classes, callees, callers,
     unresolved_references, uncalled_functions, most_called_functions, most_calling_functions,
     recursive_functions, classes_with_no_methods, functions_calling_references,
-    classes_with_most_methods, function_call_arguments, rescan_codebase, file_contents
+    classes_with_most_methods, function_call_arguments, rescan_codebase, file_contents,
+    repetitive_constant_names
 )
 
 def test_graph_summary():
@@ -96,3 +97,18 @@ def test_file_contents_empty():
     assert result['file'] == "nonexistent.py"
     assert isinstance(result['contents'], list)
     assert result['contents'] == []
+
+def test_repetitive_constant_names():
+    result = repetitive_constant_names()
+    assert isinstance(result, list)
+    for r in result:
+        assert 'name' in r
+        assert 'count' in r
+        assert 'occurrences' in r
+        assert isinstance(r['occurrences'], list)
+        assert len(r['occurrences']) == r['count']
+        for occurrence in r['occurrences']:
+            assert 'value' in occurrence
+            assert 'file' in occurrence
+            assert 'line' in occurrence
+            assert 'scope' in occurrence

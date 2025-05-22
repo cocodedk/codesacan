@@ -188,6 +188,7 @@ CodeScan provides various tools for code analysis through the MCP server:
   - `classes_with_most_methods` - List classes with the most methods
   - `function_call_arguments` - List arguments used in calls to a specific function
   - `repetitive_constants` - Find constants with identical values used in multiple places
+  - `repetitive_constant_names` - Find constants with the same name but potentially different values used in multiple places
 
 ### Running the MCP Server
 Use the provided shell script to launch the server (ensure your virtual environment is activated and Neo4j is running):

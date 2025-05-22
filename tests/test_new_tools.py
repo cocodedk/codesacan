@@ -11,8 +11,9 @@ from unittest.mock import patch, MagicMock
 # Add parent directory to path to import modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import from codescan_mcp_server
-import codescan_mcp_server
+# Import the tools we're testing
+from codescan_lib.mcp_tools.test_tools import untested_classes
+from codescan_lib.mcp_tools.call_graph import transitive_calls
 
 class TestNewTools(unittest.TestCase):
     """Test the new tools added to the MCP server."""
@@ -25,12 +26,17 @@ class TestNewTools(unittest.TestCase):
         self.mock_driver.session.return_value = self.mock_session
 
         # Patch the q function to use our mock
-        self.q_patcher = patch.object(codescan_mcp_server, 'q')
+        self.q_patcher = patch('codescan_lib.mcp_tools.test_tools.q')
         self.mock_q = self.q_patcher.start()
+
+        # Also patch q in call_graph module
+        self.q_call_graph_patcher = patch('codescan_lib.mcp_tools.call_graph.q')
+        self.mock_q_call_graph = self.q_call_graph_patcher.start()
 
     def tearDown(self):
         """Tear down test fixtures."""
         self.q_patcher.stop()
+        self.q_call_graph_patcher.stop()
 
     def test_untested_classes(self):
         """Test the untested_classes tool."""
@@ -42,7 +48,7 @@ class TestNewTools(unittest.TestCase):
         self.mock_q.return_value = mock_results
 
         # Call the function
-        result = codescan_mcp_server.untested_classes()
+        result = untested_classes()
 
         # Verify the result
         self.assertEqual(result, mock_results)
@@ -63,7 +69,7 @@ class TestNewTools(unittest.TestCase):
         self.mock_q.return_value = mock_results
 
         # Call the function
-        result = codescan_mcp_server.untested_classes(exclude_private=False)
+        result = untested_classes(exclude_private=False)
 
         # Verify the result
         self.assertEqual(result, mock_results)
@@ -84,21 +90,21 @@ class TestNewTools(unittest.TestCase):
                 "function_files": ["source.py", "middle.py", "target.py"]
             }
         ]
-        self.mock_q.return_value = mock_results
+        self.mock_q_call_graph.return_value = mock_results
 
         # Call the function
-        result = codescan_mcp_server.transitive_calls("source_fn", "target_fn")
+        result = transitive_calls("source_fn", "target_fn")
 
         # Verify the result
         self.assertEqual(result, mock_results)
 
         # Verify the query was called with the right parameters
-        self.mock_q.assert_called_once()
-        query_arg = self.mock_q.call_args[0][0]
+        self.mock_q_call_graph.assert_called_once()
+        query_arg = self.mock_q_call_graph.call_args[0][0]
         self.assertIn("MATCH path = (source:Function {name: $source_fn})-[:CALLS*1..10]->(target:Function {name: $target_fn})", query_arg)
 
         # Check parameters
-        kwargs = self.mock_q.call_args[1]
+        kwargs = self.mock_q_call_graph.call_args[1]
         self.assertEqual(kwargs["source_fn"], "source_fn")
         self.assertEqual(kwargs["target_fn"], "target_fn")
         self.assertEqual(kwargs["max_depth"], 10)
@@ -113,21 +119,21 @@ class TestNewTools(unittest.TestCase):
                 "function_files": ["source.py", "middle.py", "target.py"]
             }
         ]
-        self.mock_q.return_value = mock_results
+        self.mock_q_call_graph.return_value = mock_results
 
         # Call the function with custom max_depth
-        result = codescan_mcp_server.transitive_calls("source_fn", "target_fn", max_depth=5)
+        result = transitive_calls("source_fn", "target_fn", max_depth=5)
 
         # Verify the result
         self.assertEqual(result, mock_results)
 
         # Verify the query was called with the right parameters
-        self.mock_q.assert_called_once()
-        query_arg = self.mock_q.call_args[0][0]
+        self.mock_q_call_graph.assert_called_once()
+        query_arg = self.mock_q_call_graph.call_args[0][0]
         self.assertIn("MATCH path = (source:Function {name: $source_fn})-[:CALLS*1..5]->(target:Function {name: $target_fn})", query_arg)
 
         # Check parameters
-        kwargs = self.mock_q.call_args[1]
+        kwargs = self.mock_q_call_graph.call_args[1]
         self.assertEqual(kwargs["max_depth"], 5)
 
 if __name__ == "__main__":

@@ -2,8 +2,8 @@
 # run_mcp_stdio_server.sh - Launch the CodeScan MCP stdio server
 # Redirects all standard output to stderr to avoid interfering with JSON-RPC
 
-# Determine the directory this script lives in
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get script directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$SCRIPT_DIR" || exit 1
 
 # Source the virtual environment
@@ -15,5 +15,5 @@ else
   exit 1
 fi
 
-# Run the MCP server; stdout is reserved for JSON-RPC
+# Execute the modular MCP server
 exec python "$SCRIPT_DIR/codescan_mcp_server.py"

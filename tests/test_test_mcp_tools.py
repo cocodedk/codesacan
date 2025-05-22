@@ -7,14 +7,14 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import MCP tools to test
-from codescan_mcp_server import (
+from codescan_lib.mcp_tools.test_tools import (
     list_test_functions, list_test_classes, get_test_files
 )
 
 class TestTestMCPTools(unittest.TestCase):
     """Test the MCP tools for test components."""
 
-    @patch('codescan_mcp_server.q')
+    @patch('codescan_lib.mcp_tools.test_tools.q')
     def test_list_test_functions(self, mock_q):
         """Test the list_test_functions tool."""
         # Set up mock return value
@@ -36,7 +36,7 @@ class TestTestMCPTools(unittest.TestCase):
         self.assertEqual(result[0]["name"], "test_function1")
         self.assertEqual(result[1]["file"], "tests/test_file2.py")
 
-    @patch('codescan_mcp_server.q')
+    @patch('codescan_lib.mcp_tools.test_tools.q')
     def test_list_test_classes(self, mock_q):
         """Test the list_test_classes tool."""
         # Set up mock return value
@@ -58,7 +58,7 @@ class TestTestMCPTools(unittest.TestCase):
         self.assertEqual(result[0]["name"], "TestClass1")
         self.assertEqual(result[1]["file"], "tests/test_file2.py")
 
-    @patch('codescan_mcp_server.q')
+    @patch('codescan_lib.mcp_tools.test_tools.q')
     def test_get_test_files(self, mock_q):
         """Test the get_test_files tool."""
         # Set up mock return value
@@ -90,10 +90,10 @@ class TestTestMCPTools(unittest.TestCase):
              patch('codescan_lib.constants.TEST_CLASS_PATTERNS', ["Test*", "*Test"]):
 
             # Import the function to test
-            from codescan_mcp_server import test_detection_config
+            from codescan_lib.mcp_tools.test_tools import get_test_detection_config
 
             # Call the function
-            result = test_detection_config()
+            result = get_test_detection_config()
 
             # Assert the result is what we expect
             self.assertEqual(result["test_dir_patterns"], ["tests/", "test/"])
