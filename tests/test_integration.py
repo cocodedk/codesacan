@@ -3,7 +3,10 @@ import tempfile
 import shutil
 import pytest
 from neo4j import GraphDatabase
-import scanner
+from codescan_lib import (
+    clear_database, analyze_directory,
+    TEST_DIR_PATTERNS, TEST_FILE_PATTERNS, TEST_FUNCTION_PREFIXES, TEST_CLASS_PATTERNS
+)
 
 @pytest.fixture(scope="module")
 def neo4j_test_session():
@@ -119,25 +122,25 @@ def describe_password_validator():
 """)
 
         # Save the original configuration
-        self.orig_dir_patterns = scanner.TEST_DIR_PATTERNS.copy()
-        self.orig_file_patterns = scanner.TEST_FILE_PATTERNS.copy()
-        self.orig_function_prefixes = scanner.TEST_FUNCTION_PREFIXES.copy()
-        self.orig_class_patterns = scanner.TEST_CLASS_PATTERNS.copy()
+        self.orig_dir_patterns = TEST_DIR_PATTERNS.copy()
+        self.orig_file_patterns = TEST_FILE_PATTERNS.copy()
+        self.orig_function_prefixes = TEST_FUNCTION_PREFIXES.copy()
+        self.orig_class_patterns = TEST_CLASS_PATTERNS.copy()
 
         # Update configuration for spec-style testing
-        scanner.TEST_DIR_PATTERNS.append("spec/")
-        scanner.TEST_FILE_PATTERNS.append("*_spec.py")
-        scanner.TEST_FUNCTION_PREFIXES.extend(["it_", "describe_"])
-        scanner.TEST_CLASS_PATTERNS.append("Describe*")
+        TEST_DIR_PATTERNS.append("spec/")
+        TEST_FILE_PATTERNS.append("*_spec.py")
+        TEST_FUNCTION_PREFIXES.extend(["it_", "describe_"])
+        TEST_CLASS_PATTERNS.append("Describe*")
 
     def restore_config(self):
         """Restore the original scanner configuration."""
         # Only restore if we've saved the original configuration
         if hasattr(self, 'orig_dir_patterns'):
-            scanner.TEST_DIR_PATTERNS = self.orig_dir_patterns
-            scanner.TEST_FILE_PATTERNS = self.orig_file_patterns
-            scanner.TEST_FUNCTION_PREFIXES = self.orig_function_prefixes
-            scanner.TEST_CLASS_PATTERNS = self.orig_class_patterns
+            TEST_DIR_PATTERNS = self.orig_dir_patterns
+            TEST_FILE_PATTERNS = self.orig_file_patterns
+            TEST_FUNCTION_PREFIXES = self.orig_function_prefixes
+            TEST_CLASS_PATTERNS = self.orig_class_patterns
 
     def test_standard_project_structure(self, neo4j_test_session):
         """Test detection of test components in a standard project structure."""
@@ -148,8 +151,8 @@ def describe_password_validator():
             self.setup_standard_project(temp_dir)
 
             # Clear database and analyze the project
-            scanner.clear_database(neo4j_test_session)
-            scanner.analyze_directory(temp_dir, neo4j_test_session)
+            clear_database(neo4j_test_session)
+            analyze_directory(temp_dir, neo4j_test_session)
 
             # Verify test functions were detected
             result = neo4j_test_session.run(
@@ -187,8 +190,8 @@ def describe_password_validator():
             self.setup_module_tests_project(temp_dir)
 
             # Clear database and analyze the project
-            scanner.clear_database(neo4j_test_session)
-            scanner.analyze_directory(temp_dir, neo4j_test_session)
+            clear_database(neo4j_test_session)
+            analyze_directory(temp_dir, neo4j_test_session)
 
             # Verify test functions were detected
             result = neo4j_test_session.run(
@@ -215,8 +218,8 @@ def describe_password_validator():
             self.setup_spec_naming_project(temp_dir)
 
             # Clear database and analyze the project
-            scanner.clear_database(neo4j_test_session)
-            scanner.analyze_directory(temp_dir, neo4j_test_session)
+            clear_database(neo4j_test_session)
+            analyze_directory(temp_dir, neo4j_test_session)
 
             # Verify test functions and classes were detected
             result = neo4j_test_session.run(

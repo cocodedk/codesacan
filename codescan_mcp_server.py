@@ -524,14 +524,19 @@ def test_detection_config() -> Dict[str, List[str]]:
     Returns:
         Dictionary with test detection pattern configuration
     """
-    # Import the config from scanner
-    import scanner
+    # Import the config from codescan_lib
+    from codescan_lib.constants import (
+        TEST_DIR_PATTERNS,
+        TEST_FILE_PATTERNS,
+        TEST_FUNCTION_PREFIXES,
+        TEST_CLASS_PATTERNS
+    )
 
     return {
-        "test_dir_patterns": scanner.TEST_DIR_PATTERNS,
-        "test_file_patterns": scanner.TEST_FILE_PATTERNS,
-        "test_function_prefixes": scanner.TEST_FUNCTION_PREFIXES,
-        "test_class_patterns": scanner.TEST_CLASS_PATTERNS
+        "test_dir_patterns": TEST_DIR_PATTERNS,
+        "test_file_patterns": TEST_FILE_PATTERNS,
+        "test_function_prefixes": TEST_FUNCTION_PREFIXES,
+        "test_class_patterns": TEST_CLASS_PATTERNS
     }
 
 @mcp.tool()
@@ -624,6 +629,54 @@ def tests_for_function(name: str, file: str = None) -> List[Dict[str, Any]]:
     """
 
     return q(query, **params)
+
+@mcp.tool()
+def transitive_calls(source_fn: str, target_fn: str, max_depth: int = 10) -> List[Dict[str, Any]]:
+    """
+    Find full relationship chains between two functions (if one call will eventually lead to the other).
+
+    Args:
+        source_fn: Name of the source function
+        target_fn: Name of the target function
+        max_depth: Maximum path length to consider (default: 10)
+
+    Returns:
+        List of paths showing how source_fn eventually calls target_fn
+    """
+    return q("""
+        MATCH path = (source:Function {name: $source_fn})-[:CALLS*1..%d]->(target:Function {name: $target_fn})
+        WHERE length(path) <= $max_depth
+        WITH path, [node IN nodes(path) | node.name] AS function_names
+        RETURN
+            function_names,
+            length(path) AS path_length,
+            [node IN nodes(path) | node.file] AS function_files
+        ORDER BY path_length
+        LIMIT 10
+    """ % max_depth, source_fn=source_fn, target_fn=target_fn, max_depth=max_depth)
+
+@mcp.tool()
+def untested_classes(exclude_private: bool = True) -> List[Dict[str, Any]]:
+    """
+    List classes without tests.
+
+    Args:
+        exclude_private: Whether to exclude private classes (starting with _)
+
+    Returns:
+        List of classes that don't have any tests covering them
+    """
+    where_clause = "WHERE NOT c:TestClass AND NOT (:TestClass)-[:TESTS]->(c)"
+
+    if exclude_private:
+        where_clause += " AND NOT c.name STARTS WITH '_'"
+
+    return q(f"""
+        MATCH (c:Class)
+        {where_clause}
+        RETURN c.name AS name, c.file AS file, c.line AS line
+        ORDER BY c.file, c.line
+    """)
 
 # --- Main Execution ---
 if __name__ == "__main__":

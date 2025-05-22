@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import the module we'll be testing
-from scanner import CodeAnalyzer, is_example_file
+from codescan_lib.analyzer import CodeAnalyzer
+from codescan_lib.utils import is_example_file
 
 class TestExampleLabeling(unittest.TestCase):
     """Test the example component labeling functionality."""

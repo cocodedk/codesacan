@@ -56,7 +56,7 @@
   - `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_HOST`, `NEO4J_PORT_BOLT`, `PROJECT_DIR`
 - The ignore list for directories is hardcoded but can be extended.
 
-### 5. Usage
+### 6. Usage
 
 #### Prerequisites
 - Python 3.8+
@@ -110,6 +110,34 @@ CodeScan includes an MCP (Model Context Protocol) server for advanced code graph
 ### MCP Server (`codescan_mcp_server.py`)
 This server exposes the code graph stored in Neo4j via the MCP protocol, making it accessible to compatible clients. It provides tools for listing files, functions, classes, call relationships, and unresolved references.
 
+#### Available Tools
+CodeScan provides various tools for code analysis through the MCP server:
+
+- **Basic Code Structure**
+  - `list_files` - List all files in the codebase
+  - `list_functions` - List functions in a specific file
+  - `list_classes` - List classes in a specific file
+
+- **Call Graph Analysis**
+  - `callees` - Find functions called by a specific function
+  - `callers` - Find functions that call a specific function
+  - `transitive_calls` - Find paths between functions (whether one function eventually calls another)
+  - `most_called_functions` - List functions with the most callers
+  - `most_calling_functions` - List functions that call the most other functions
+
+- **Test Coverage Analysis**
+  - `untested_functions` - List functions without tests
+  - `untested_classes` - List classes without tests
+  - `test_coverage_ratio` - Get overall test coverage statistics
+  - `functions_tested_by` - List functions tested by a specific test file
+  - `tests_for_function` - List tests for a specific function
+
+- **Miscellaneous Analysis**
+  - `recursive_functions` - List functions that call themselves
+  - `classes_with_no_methods` - List classes without any methods
+  - `classes_with_most_methods` - List classes with the most methods
+  - `function_call_arguments` - List arguments used in calls to a specific function
+
 ### Running the MCP Server
 Use the provided shell script to launch the server (ensure your virtual environment is activated and Neo4j is running):
 
@@ -126,9 +154,8 @@ To use CodeScan's MCP server with Cursor IDE, add the following to your `.cursor
 {
   "mcpServers": {
     "codescan_neo4j": {
-      "command": "/home/bba/0-projects/codescan/run_mcp_stdio_server.sh",
-      "args": [],
-      "cwd": "/home/bba/0-projects/codescan"
+      "command": "/path/to/codescan/run_mcp_stdio_server.sh",
+      "args": []
     }
   }
 }

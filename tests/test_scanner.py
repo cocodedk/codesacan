@@ -3,7 +3,7 @@ import tempfile
 import shutil
 import pytest
 from neo4j import GraphDatabase
-import scanner
+from codescan_lib import clear_database, analyze_file, analyze_directory
 
 @pytest.fixture(scope="module")
 def neo4j_test_session():
@@ -33,14 +33,14 @@ def bar():
     shutil.rmtree(d)
 
 def test_clear_database(neo4j_test_session):
-    scanner.clear_database(neo4j_test_session)
+    clear_database(neo4j_test_session)
     result = neo4j_test_session.run("MATCH (n) RETURN count(n) AS cnt").single()
     assert result["cnt"] == 0
 
 def test_analyze_file_nodes_and_edges(neo4j_test_session, temp_pyfile):
     fpath, basedir = temp_pyfile
-    scanner.clear_database(neo4j_test_session)
-    scanner.analyze_file(fpath, neo4j_test_session, basedir)
+    clear_database(neo4j_test_session)
+    analyze_file(fpath, neo4j_test_session, basedir)
     # Class node
     res = neo4j_test_session.run("MATCH (c:Class {name:'A'}) RETURN c").single()
     assert res is not None
@@ -53,23 +53,23 @@ def test_analyze_file_nodes_and_edges(neo4j_test_session, temp_pyfile):
 
 def test_reference_function(neo4j_test_session, temp_pyfile):
     fpath, basedir = temp_pyfile
-    scanner.clear_database(neo4j_test_session)
-    scanner.analyze_file(fpath, neo4j_test_session, basedir)
+    clear_database(neo4j_test_session)
+    analyze_file(fpath, neo4j_test_session, basedir)
     res = neo4j_test_session.run("MATCH (f:Function:ReferenceFunction {name:'foo'}) RETURN f").single()
     assert res is not None
 
 def test_builtin_and_stdlib_skipped(neo4j_test_session, temp_pyfile):
     fpath, basedir = temp_pyfile
-    scanner.clear_database(neo4j_test_session)
-    scanner.analyze_file(fpath, neo4j_test_session, basedir)
+    clear_database(neo4j_test_session)
+    analyze_file(fpath, neo4j_test_session, basedir)
     # print is builtin, should not be a node
     res = neo4j_test_session.run("MATCH (f:Function {name:'print'}) RETURN f").single()
     assert res is None
 
 def test_relative_path_storage(neo4j_test_session, temp_pyfile):
     fpath, basedir = temp_pyfile
-    scanner.clear_database(neo4j_test_session)
-    scanner.analyze_file(fpath, neo4j_test_session, basedir)
+    clear_database(neo4j_test_session)
+    analyze_file(fpath, neo4j_test_session, basedir)
     res = neo4j_test_session.run("MATCH (f:Function {name:'bar'}) RETURN f.file AS file").single()
     assert res is not None
     assert not os.path.isabs(res["file"])
@@ -82,8 +82,8 @@ def test_ignore_dirs(neo4j_test_session):
     fpath = os.path.join(ignore_dir, "foo.py")
     with open(fpath, "w") as f:
         f.write("def foo(): pass\n")
-    scanner.clear_database(neo4j_test_session)
-    scanner.analyze_directory(d, neo4j_test_session)
+    clear_database(neo4j_test_session)
+    analyze_directory(d, neo4j_test_session)
     res = neo4j_test_session.run("MATCH (f:Function {name:'foo'}) RETURN f").single()
     shutil.rmtree(d)
     assert res is None
@@ -93,9 +93,9 @@ def test_syntax_error_handling(neo4j_test_session):
     fpath = os.path.join(d, "bad.py")
     with open(fpath, "w") as f:
         f.write("def bad(:\n")
-    scanner.clear_database(neo4j_test_session)
+    clear_database(neo4j_test_session)
     # Should not raise
-    scanner.analyze_file(fpath, neo4j_test_session, d)
+    analyze_file(fpath, neo4j_test_session, d)
     shutil.rmtree(d)
 
 def test_unicode_decode_error_handling(neo4j_test_session):
@@ -103,7 +103,7 @@ def test_unicode_decode_error_handling(neo4j_test_session):
     fpath = os.path.join(d, "bad.py")
     with open(fpath, "wb") as f:
         f.write(b"\xff\xfe\xfd\xfc\xfb\xfa")
-    scanner.clear_database(neo4j_test_session)
+    clear_database(neo4j_test_session)
     # Should not raise
-    scanner.analyze_file(fpath, neo4j_test_session, d)
+    analyze_file(fpath, neo4j_test_session, d)
     shutil.rmtree(d)

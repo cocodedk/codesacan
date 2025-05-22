@@ -77,7 +77,7 @@ from mcp.server.fastmcp import FastMCP
 load_dotenv(".env", override=True)
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7600")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "demodemo")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 DEBUG_MCP = os.getenv("DEBUG_MCP", "false").lower() in ("true", "1", "yes")
 
 # --- Logging Setup ---
@@ -92,7 +92,9 @@ driver = None
 # Initialize driver...
 
 # --- Initialize FastMCP ---
-mcp = FastMCP("codescan_neo4j")
+mcp = FastMCP("codescan_neo4j",
+              description="Neo4j code graph analyzer for Python codebases",
+              version="1.0.0")
 
 # --- Query Helper ---
 def q(cypher: str, **params) -> List[Dict[str, Any]]:

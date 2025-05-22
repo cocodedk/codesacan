@@ -82,25 +82,14 @@ class TestTestMCPTools(unittest.TestCase):
         self.assertEqual(result[1]["file"], "tests/test_file2.py")
 
     def test_test_detection_config(self):
-        """Test the test_detection_config tool using a mock for the scanner import."""
-        # Create a new mock for the test
-        mock_scanner = MagicMock()
-        mock_scanner.TEST_DIR_PATTERNS = ["tests/", "test/"]
-        mock_scanner.TEST_FILE_PATTERNS = ["test_*.py", "*_test.py"]
-        mock_scanner.TEST_FUNCTION_PREFIXES = ["test_"]
-        mock_scanner.TEST_CLASS_PATTERNS = ["Test*", "*Test"]
+        """Test the test_detection_config tool using a mock for the constants import."""
+        # Mock the constants in codescan_lib
+        with patch('codescan_lib.constants.TEST_DIR_PATTERNS', ["tests/", "test/"]), \
+             patch('codescan_lib.constants.TEST_FILE_PATTERNS', ["test_*.py", "*_test.py"]), \
+             patch('codescan_lib.constants.TEST_FUNCTION_PREFIXES', ["test_"]), \
+             patch('codescan_lib.constants.TEST_CLASS_PATTERNS', ["Test*", "*Test"]):
 
-        # Patch the built-in __import__ function to return our mock
-        orig_import = __import__
-
-        def mock_import(name, *args, **kwargs):
-            if name == 'scanner':
-                return mock_scanner
-            return orig_import(name, *args, **kwargs)
-
-        # Apply the patch
-        with patch('builtins.__import__', side_effect=mock_import):
-            # Import the function to test here, so it uses our mocked import
+            # Import the function to test
             from codescan_mcp_server import test_detection_config
 
             # Call the function

@@ -34,4 +34,12 @@ alwaysApply: true
 ### **4. MCP Tool Usage**
 * `MCP Sequential Thinking` → structured planning
 ---
-
+### **5. Function Size Rule**
+* Functions <50 lines → focused, testable
+* One responsibility per function
+---
+### **6. File Size Rule**
+* Files <500 lines → split by concern
+* Extract logic → modules, utils, features
+* Favor readability, reuse, modularity
+---

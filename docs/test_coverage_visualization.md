@@ -12,7 +12,7 @@ CodeScan identifies test components and establishes `TESTS` relationships betwee
 
 1. Start your Neo4j database (typically with Docker Compose)
 2. Open Neo4j Browser at `http://localhost:7400` (or your configured port)
-3. Login with your credentials (default: neo4j/demodemo)
+3. Login with your credentials (default: neo4j/password)
 
 ### Visualizing Test Coverage
 
