@@ -7,6 +7,7 @@ import os
 import logging
 import sys
 from typing import List, Dict, Any, Optional
+from contextlib import contextmanager
 
 from dotenv import load_dotenv
 from neo4j import GraphDatabase, basic_auth
@@ -136,7 +137,25 @@ def q(cypher: str, **params) -> List[Dict[str, Any]]:
         logger.error(f"Neo4j query error: {e}")
         return []
 
+@contextmanager
 def get_db_session():
-    """Create and return a Neo4j database session."""
-    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-    return driver.session()
+    """
+    Context manager for Neo4j database sessions.
+
+    Creates a new driver and session, and ensures both are properly closed
+    when the context is exited.
+
+    Usage:
+        with get_db_session() as session:
+            result = session.run("MATCH (n) RETURN count(n)")
+    """
+    temp_driver = None
+    try:
+        temp_driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        session = temp_driver.session()
+        yield session
+    finally:
+        if session:
+            session.close()
+        if temp_driver:
+            temp_driver.close()

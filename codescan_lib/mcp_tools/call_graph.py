@@ -195,3 +195,70 @@ def transitive_calls(source_fn: str, target_fn: str, max_depth: int = 10) -> Lis
         ORDER BY path_length
         LIMIT 10
     """ % max_depth, source_fn=source_fn, target_fn=target_fn, max_depth=max_depth)
+
+@mcp.tool()
+def find_function_relations(function_name: str, partial_match: bool = False, limit: int = 50) -> Dict[str, Any]:
+    """
+    Find function relations by function name, with option to search by partial name.
+
+    Args:
+        function_name: Full or partial name of the function to find relations for
+        partial_match: If True, will match functions containing the specified name substring
+        limit: Maximum number of results to return (default: 50)
+
+    Returns:
+        Dictionary with matching functions, their callers, and callees
+    """
+    # First find matching functions
+    if partial_match:
+        matching_functions = q("""
+            MATCH (f:Function)
+            WHERE f.name CONTAINS $name
+            RETURN f.name AS name, f.file AS file, f.line AS line, f.end_line AS end_line
+            ORDER BY f.file, f.line
+            LIMIT $limit
+        """, name=function_name, limit=limit)
+    else:
+        matching_functions = q("""
+            MATCH (f:Function {name: $name})
+            RETURN f.name AS name, f.file AS file, f.line AS line, f.end_line AS end_line
+            ORDER BY f.file, f.line
+            LIMIT $limit
+        """, name=function_name, limit=limit)
+
+    # If no functions found, return early
+    if not matching_functions:
+        return {
+            "matching_functions": [],
+            "relations": []
+        }
+
+    # For each matching function, find its callers and callees
+    relations = []
+    for fn in matching_functions:
+        # Get callers
+        callers_result = q("""
+            MATCH (caller:Function)-[:CALLS]->(f:Function {name: $name})
+            WHERE f.file = $file
+            RETURN caller.name AS caller_name, caller.file AS caller_file
+            LIMIT $limit
+        """, name=fn["name"], file=fn["file"], limit=limit)
+
+        # Get callees
+        callees_result = q("""
+            MATCH (f:Function {name: $name})-[:CALLS]->(callee:Function)
+            WHERE f.file = $file
+            RETURN callee.name AS callee_name, callee.file AS callee_file
+            LIMIT $limit
+        """, name=fn["name"], file=fn["file"], limit=limit)
+
+        relations.append({
+            "function": fn,
+            "callers": callers_result,
+            "callees": callees_result
+        })
+
+    return {
+        "matching_functions": matching_functions,
+        "relations": relations
+    }
